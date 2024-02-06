@@ -1,12 +1,11 @@
 extern crate clap;
 extern crate suffix;
 
+use clap::{App, Arg};
 use std::fs::File;
-use std::io::{Read,BufReader,BufRead};
+use std::io::{BufRead, BufReader, Read};
 use std::process::exit;
-use clap::{Arg, App};
 use suffix::SuffixTable;
-
 
 ///Read a lexicon, one entry per line
 fn read_lexicon(filename: &str) -> Result<Vec<String>, std::io::Error> {
@@ -54,13 +53,18 @@ fn main() {
                     .arg(Arg::with_name("text")
                         .long("text")
                         .short("t")
-                        .help("The text to operate on (plain text UTF-8, max 4GB)")
+                        .help("The filename of the text to operate on (plain text UTF-8, max 4GB)")
                         .takes_value(true)
                         .required(true))
                     .arg(Arg::with_name("all")
                         .long("all")
                         .short("a")
                         .help("Return all matches (also as substrings), rather than only exact matches")
+                        .required(false))
+                    .arg(Arg::with_name("verbose")
+                        .long("verbose")
+                        .short("v")
+                        .help("Return output verbosely as TSV with each match on a separate row. Will output a header on the first line.")
                         .required(false))
                     .arg(Arg::with_name("no-matches")
                         .long("no-matches")
@@ -75,7 +79,11 @@ fn main() {
                         .default_value("1"))
                     .get_matches();
 
-    let freq_threshold = args.value_of("freq").expect("frequency threshold").parse::<usize>().expect("Frequency threshold must be an integer value >= 0");
+    let freq_threshold = args
+        .value_of("freq")
+        .expect("frequency threshold")
+        .parse::<usize>()
+        .expect("Frequency threshold must be an integer value >= 0");
 
     if !args.is_present("lexicon") && !args.is_present("query") {
         eprintln!("ERROR: specify either --lexicon or --query");
@@ -103,16 +111,28 @@ fn main() {
     let suffixtable = build_suffixarray(&text);
 
     eprintln!("Searching...");
+    if args.is_present("verbose") {
+        println!("Text\tBeginUtf8Offset\tEndUtf8Offset");
+    }
     for entry in lexicon.iter() {
         let matches = suffixtable.positions(entry);
+        let length = entry.as_bytes().len() as u32;
 
         if args.is_present("all") {
             if matches.len() >= freq_threshold {
-                print!("{}\t{}",entry, matches.len());
-                if !args.is_present("no-matches") {
+                if args.is_present("verbose") {
                     for begin in matches.iter() {
-                        print!("\t{}",begin);
+                        let end = *begin + length;
+                        println!("{}\t{}\t{}", entry, *begin, end);
                     }
+                } else {
+                    print!("{}\t{}", entry, matches.len());
+                    if !args.is_present("no-matches") {
+                        for begin in matches.iter() {
+                            print!("\t{}", begin);
+                        }
+                    }
+                    println!();
                 }
             }
         } else {
@@ -121,32 +141,41 @@ fn main() {
             //boundaries are simple ascii-like spaces, punctuation etc.
             //
             let bytetext: &[u8] = text.as_bytes();
-            let entrylength = entry.as_bytes().len();
-            let matches_exact: Vec<u32> = matches.into_iter().filter_map(|begin| {
-                let begin = *begin as usize;
-                if begin > 0 {
-                    let c: char = bytetext[begin-1] as char;
-                    if c.is_alphanumeric() {
-                        return None;
+            let matches_exact: Vec<u32> = matches
+                .into_iter()
+                .filter_map(|begin| {
+                    let begin = *begin as usize;
+                    if begin > 0 {
+                        let c: char = bytetext[begin - 1] as char;
+                        if c.is_alphanumeric() {
+                            return None;
+                        }
                     }
-                }
-                if begin + entrylength < bytetext.len() {
-                    let c: char = bytetext[begin +entrylength] as char;
-                    if c.is_alphanumeric() {
-                        return None;
+                    if (begin + length as usize) < bytetext.len() {
+                        let c: char = bytetext[begin + length as usize] as char;
+                        if c.is_alphanumeric() {
+                            return None;
+                        }
                     }
-                }
-                Some(begin as u32)
-            }).collect();
+                    Some(begin as u32)
+                })
+                .collect();
 
             if matches_exact.len() >= freq_threshold {
-                print!("{}\t{}",entry, matches_exact.len());
-                if !args.is_present("no-matches") {
+                if args.is_present("verbose") {
                     for begin in matches_exact.iter() {
-                        print!("\t{}",begin);
+                        let end = begin + length;
+                        println!("{}\t{}\t{}", entry, *begin, end);
                     }
+                } else {
+                    print!("{}\t{}", entry, matches_exact.len());
+                    if !args.is_present("no-matches") {
+                        for begin in matches_exact.iter() {
+                            print!("\t{}", begin);
+                        }
+                    }
+                    println!();
                 }
-                println!();
             }
         }
     }
