@@ -1,16 +1,16 @@
 [package]
 authors = ["Maarten van Gompel <proycon@anaproy.nl>"]
 description = "This is a simple lexicon matching tool that, given a lexicon of words or phrases, identifies all matches in a given target text. Uses suffix arrays."
-edition = "2018"
+edition = "2021"
 homepage = "https://github.com/proycon/lexmatch"
 keywords = ["nlp", "text-processing"]
 license = "GPL-3.0+"
 name = "lexmatch"
 readme = "README.md"
 repository = "https://github.com/proycon/lexmatch"
-version = "0.1.0"
+version = "0.2.0"
 include = ["src/**/*", "LICENSE", "README.md"]
 
 [dependencies]
 clap = "2.33.3"
-suffix = "1.2.0"
+suffix = "1.3.0"
