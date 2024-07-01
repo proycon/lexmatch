@@ -237,7 +237,7 @@ fn main() {
 
     let do_coverage = args.is_present("coverage");
 
-    if args.is_present("verbose") || args.is_present("tokens") {
+    if args.is_present("verbose") || args.is_present("tokens") || args.is_present("cjk") {
         print!("Text");
         if lexicons.len() > 1 {
             println!("\tLexicon");
