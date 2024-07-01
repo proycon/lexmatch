@@ -77,6 +77,10 @@ fn main() {
                         .short('T')
                         .help("Do a simple token-based lookup using a hash-table instead of using suffix arrays. This is usually faster but more limited (no thresholds etc). Only works on languages with whitespace/punctuation, use --cjk instead for Chinese/Japanese/Korean text.")
                         .required(false))
+                    .arg(Arg::with_name("coverage")
+                        .long("coverage")
+                        .help("With --tokens; compute how many tokens are covered by the lexicon. With --cjk; on a character basis.")
+                        .required(false))
                     .arg(Arg::with_name("cjk")
                         .short('C')
                         .long("cjk")
@@ -154,6 +158,8 @@ fn main() {
         .map(|s: &String| s.clone())
         .collect();
 
+    let do_coverage = args.is_present("coverage");
+
     if args.is_present("verbose") || args.is_present("tokens") {
         print!("Text");
         if lexicons.len() > 1 {
@@ -172,11 +178,14 @@ fn main() {
         if args.is_present("tokens") {
             let mut token = String::new();
             let mut begin = 0;
+            let mut matchcount = 0;
+            let mut totalcount = 0;
             for (i, c) in text.char_indices() {
                 if c.is_alphanumeric() {
                     token.push(c);
                 } else if !token.is_empty() {
                     let mut matched_lexicon = None;
+                    totalcount += 1;
                     for (lexicon, lexiconname) in lexicons.iter().zip(lexiconnames.iter()) {
                         if lexicon.contains(&token) {
                             matched_lexicon = Some(*lexiconname);
@@ -184,6 +193,7 @@ fn main() {
                         }
                     }
                     if let Some(matched_lexicon) = matched_lexicon {
+                        matchcount += 1;
                         let end = begin + token.len();
                         print!("{}", token);
                         if lexicons.len() > 1 {
@@ -201,6 +211,7 @@ fn main() {
                 }
             }
             if !token.is_empty() {
+                totalcount += 1;
                 let mut matched_lexicon = None;
                 for (lexicon, lexiconname) in lexicons.iter().zip(lexiconnames.iter()) {
                     if lexicon.contains(&token) {
@@ -209,6 +220,7 @@ fn main() {
                     }
                 }
                 if let Some(matched_lexicon) = matched_lexicon {
+                    matchcount += 1;
                     let end = begin + token.len();
                     print!("{}", token);
                     if lexicons.len() > 1 {
@@ -220,7 +232,16 @@ fn main() {
                     println!("\t{}\t{}", begin, end);
                 }
             }
+            if do_coverage {
+                println!(
+                    "#coverage (tokens) = {}/{} = {}",
+                    matchcount,
+                    totalcount,
+                    matchcount as f64 / totalcount as f64
+                );
+            }
         } else if args.is_present("cjk") {
+            let mut matchcount = 0;
             let maxlen = args
                 .value_of("cjk")
                 .unwrap()
@@ -239,6 +260,9 @@ fn main() {
                             }
                         }
                         if let Some(matched_lexicon) = matched_lexicon {
+                            if do_coverage {
+                                matchcount += pattern.chars().count();
+                            }
                             print!("{}", pattern);
                             if lexicons.len() > 1 {
                                 print!("\t{}", matched_lexicon);
@@ -250,6 +274,15 @@ fn main() {
                         }
                         break; //longest match only
                     }
+                }
+                if do_coverage {
+                    let totalcount = text.chars().count();
+                    println!(
+                        "#coverage (chars) = {}/{} = {}",
+                        matchcount,
+                        totalcount,
+                        matchcount as f64 / totalcount as f64
+                    );
                 }
             }
         } else {
