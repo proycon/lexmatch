@@ -11,7 +11,7 @@ use suffix::SuffixTable;
 type Lexicon = HashSet<String>;
 
 ///Read a lexicon, one entry per line, TSV is allowed with entry in first column (rest will just be ignored)
-fn read_lexicon(filename: &str) -> Result<Lexicon, std::io::Error> {
+fn read_lexicon(filename: &str, lowercase: bool) -> Result<Lexicon, std::io::Error> {
     let mut lexicon = HashSet::new();
     let f = File::open(filename)?;
     let f_buffer = BufReader::new(f);
@@ -19,22 +19,32 @@ fn read_lexicon(filename: &str) -> Result<Lexicon, std::io::Error> {
         if let Ok(entry) = line {
             let field = entry.split("\t").next().unwrap().to_string();
             if !field.is_empty() {
-                lexicon.insert(field);
+                lexicon.insert(if lowercase {
+                    field.to_lowercase()
+                } else {
+                    field
+                });
             }
         }
     }
     Ok(lexicon)
 }
 
-fn read_text(filename: &str) -> Result<String, std::io::Error> {
+fn read_text(filename: &str, lowercase: bool) -> Result<String, std::io::Error> {
     if filename == "-" {
         let mut text: String = String::new();
         stdin().lock().read_to_string(&mut text)?;
+        if lowercase {
+            text = text.to_lowercase();
+        }
         Ok(text)
     } else {
         let mut f = File::open(filename)?;
         let mut text: String = String::new();
         f.read_to_string(&mut text)?;
+        if lowercase {
+            text = text.to_lowercase();
+        }
         Ok(text)
     }
 }
@@ -88,6 +98,12 @@ fn main() {
                         .help("Do a greedy character-based lookup using a hash-table instead of using suffix arrays. The value corresponds to the maximum number of characters to consider. Use this instead of --tokens for languages like Chinese, Japanese, Korean, use --tokens if the language uses whitesapce and punctuation as token delimiter.")
                         .takes_value(true)
                         .required(false))
+                    .arg(Arg::with_name("no-case")
+                        .long("no-case")
+                        .alias("case-insensitive")
+                        .short('i')
+                        .help("Case insensitive matching. (Warning: This *MAY* result in rare cases result in offsets that no longer match the original text!)")
+                        .required(false))
                     .arg(Arg::with_name("no-matches")
                         .long("count-only")
                         .alias("no-matches")
@@ -137,7 +153,7 @@ fn main() {
             .unwrap()
             .map(|s: &String| {
                 eprintln!("Reading lexicon...");
-                read_lexicon(s).expect("Parsing lexicon")
+                read_lexicon(s, args.is_present("no-case")).expect("Parsing lexicon")
             })
             .collect()
     } else {
@@ -178,7 +194,7 @@ fn main() {
 
     for textfile in texts.iter() {
         eprintln!("Reading text from {}...", textfile);
-        let text = read_text(textfile).expect("Parsing text");
+        let text = read_text(textfile, args.is_present("no-case")).expect("Parsing text");
 
         if args.is_present("tokens") {
             let mut token = String::new();

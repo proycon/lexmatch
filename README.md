@@ -45,7 +45,7 @@ considered, the rest is ignored.
 Instead of a lexicon you can also provide the patterns to query on the command line using ``--query``.
 
 By default, you will get a TSV file with a column for the text, the occurrence count, and
-one with the begin position for each match (dynamic columns):
+one with the begin position (UTF-8 byte position) for each match (dynamic columns):
 
 ```
 $ lexmatch --query good --query bad /nettmp/republic.short.txt 
@@ -55,6 +55,10 @@ Searching...
 good    4       193     3307    3480    278
 bad     3       201     3315    3488
 ```
+
+Matching is case sensitive by default, add `--no-case` for case insensitive
+behaviour (all input and output will be lowercase, this may in rare cases cause
+the UTF-8 offsets to no longer be valid on the original text).
 
 For verbose output, add ``--verbose``. This produces cleaner TSV (tab seperated
 values) output that you can easily import in for example the [STAM
