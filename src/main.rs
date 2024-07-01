@@ -3,7 +3,7 @@ extern crate suffix;
 
 use clap::{App, Arg};
 use std::fs::File;
-use std::io::{BufRead, BufReader, Read};
+use std::io::{stdin, BufRead, BufReader, Read};
 use std::process::exit;
 use suffix::SuffixTable;
 
@@ -23,10 +23,16 @@ fn read_lexicon(filename: &str) -> Result<Vec<String>, std::io::Error> {
 }
 
 fn read_text(filename: &str) -> Result<String, std::io::Error> {
-    let mut f = File::open(filename)?;
-    let mut text: String = String::new();
-    f.read_to_string(&mut text)?;
-    Ok(text)
+    if filename == "-" {
+        let mut text: String = String::new();
+        stdin().lock().read_to_string(&mut text)?;
+        Ok(text)
+    } else {
+        let mut f = File::open(filename)?;
+        let mut text: String = String::new();
+        f.read_to_string(&mut text)?;
+        Ok(text)
+    }
 }
 
 fn build_suffixarray(text: &str) -> SuffixTable {
@@ -72,7 +78,7 @@ fn main() {
                         .takes_value(true)
                         .default_value("1"))
                     .arg(Arg::with_name("text")
-                        .help("The filename of the text to operate on (plain text UTF-8, max 4GB)")
+                        .help("The filename of the text to operate on (plain text UTF-8, max 4GB), use - for standard input.")
                         .multiple_occurrences(true)
                         .required(true))
                     .get_matches();
