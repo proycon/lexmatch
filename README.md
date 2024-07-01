@@ -10,6 +10,9 @@ plain-text UTF-8. For the former implementation (default), it is limited to
 2^32 bytes (about 4GB). For the latter implementation (`--tokens`/`--cjk`),
 there is no such limit. The offsets outputted will be UTF-8 *byte* positions.
 
+This tool only does exact (or case insensitive) matching, if you need fuzzy
+matching against lexicons, check out [analiticcl](https://github.com/proycon/analiticcl)
+instead.
 
 ## Installation
 
