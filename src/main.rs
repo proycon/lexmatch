@@ -37,6 +37,7 @@ fn read_text(filename: &str, lowercase: bool) -> Result<String, std::io::Error> 
         if lowercase {
             text = text.to_lowercase();
         }
+        text.push('\n'); //ensure we always end with a newline
         Ok(text)
     } else {
         let mut f = File::open(filename)?;
@@ -45,12 +46,67 @@ fn read_text(filename: &str, lowercase: bool) -> Result<String, std::io::Error> 
         if lowercase {
             text = text.to_lowercase();
         }
+        text.push('\n');
         Ok(text)
     }
 }
 
 fn build_suffixarray(text: &str) -> SuffixTable {
     SuffixTable::new(text)
+}
+
+#[inline]
+fn print_verbose_match(
+    match_text: &str,
+    begin: usize,
+    end: usize,
+    matched_lexicons: &Vec<bool>,
+    lexiconnames: &Vec<&str>,
+    texts_len: usize,
+    textfile: &str,
+) {
+    print!("{}", match_text);
+    if lexiconnames.len() > 1 {
+        print!("\t");
+        let mut first = true;
+        for (matches, lexiconname) in matched_lexicons.iter().zip(lexiconnames.iter()) {
+            if *matches {
+                print!("{}{}", if !first { ";" } else { "" }, lexiconname);
+                first = false;
+            }
+        }
+    }
+    if texts_len > 1 {
+        print!("\t{}", textfile);
+    }
+    println!("\t{}\t{}", begin, end);
+}
+
+#[inline]
+fn print_multi_match(
+    match_text: &str,
+    indices: &[u32],
+    lexiconname: &str,
+    lexicon_len: usize,
+    texts_len: usize,
+    textfile: &str,
+    ignore_matches: bool,
+) {
+    print!("{}", match_text);
+    print!("\t{}", indices.len());
+    if lexicon_len > 1 {
+        print!("\t{}", lexiconname);
+    }
+    if texts_len > 1 {
+        print!("\t{}", textfile);
+    }
+    if !ignore_matches {
+        //dynamic columns
+        for begin in indices.iter() {
+            print!("\t{}", begin);
+        }
+    }
+    println!();
 }
 
 fn main() {
@@ -163,7 +219,7 @@ fn main() {
     let lexiconnames: Vec<&str> = if args.is_present("lexicon") {
         args.get_many("lexicon").unwrap().copied().collect()
     } else {
-        vec!["custom"]
+        vec!["query"]
     };
 
     if args.is_present("query") {
@@ -192,6 +248,10 @@ fn main() {
         println!("\tBeginUtf8Offset\tEndUtf8Offset");
     }
 
+    let mut matchcount = vec![0; lexicons.len()]; //indices correspond to the lexicon
+    let mut matched_lexicon = vec![false; lexicons.len()]; //indices correspond to the lexicon
+    let mut totalcount = 0;
+
     for textfile in texts.iter() {
         eprintln!("Reading text from {}...", textfile);
         let text = read_text(textfile, args.is_present("no-case")).expect("Parsing text");
@@ -199,31 +259,35 @@ fn main() {
         if args.is_present("tokens") {
             let mut token = String::new();
             let mut begin = 0;
-            let mut matchcount = 0;
-            let mut totalcount = 0;
             for (i, c) in text.char_indices() {
                 if c.is_alphanumeric() {
                     token.push(c);
                 } else if !token.is_empty() {
-                    let mut matched_lexicon = None;
-                    totalcount += 1;
-                    for (lexicon, lexiconname) in lexicons.iter().zip(lexiconnames.iter()) {
-                        if lexicon.contains(&token) {
-                            matched_lexicon = Some(*lexiconname);
-                            break;
+                    let mut has_match = false;
+                    if lexicons.len() > 1 {
+                        for item in &mut matched_lexicon {
+                            //reset matches
+                            *item = false;
                         }
                     }
-                    if let Some(matched_lexicon) = matched_lexicon {
-                        matchcount += 1;
-                        let end = begin + token.len();
-                        print!("{}", token);
-                        if lexicons.len() > 1 {
-                            print!("\t{}", matched_lexicon);
+                    totalcount += 1;
+                    for (j, lexicon) in lexicons.iter().enumerate() {
+                        if lexicon.contains(&token) {
+                            matched_lexicon[j] = true;
+                            matchcount[j] += 1;
+                            has_match = true;
                         }
-                        if texts.len() > 1 {
-                            print!("\t{}", textfile);
-                        }
-                        println!("\t{}\t{}", begin, end);
+                    }
+                    if has_match {
+                        print_verbose_match(
+                            &token,
+                            begin,
+                            begin + token.len(),
+                            &matched_lexicon,
+                            &lexiconnames,
+                            texts.len(),
+                            textfile,
+                        );
                     }
                     token.clear();
                     begin = i + 1;
@@ -231,42 +295,7 @@ fn main() {
                     begin = i + 1;
                 }
             }
-            if !token.is_empty() {
-                totalcount += 1;
-                let mut matched_lexicon = None;
-                for (lexicon, lexiconname) in lexicons.iter().zip(lexiconnames.iter()) {
-                    if lexicon.contains(&token) {
-                        matched_lexicon = Some(*lexiconname);
-                        break;
-                    }
-                }
-                if let Some(matched_lexicon) = matched_lexicon {
-                    matchcount += 1;
-                    let end = begin + token.len();
-                    print!("{}", token);
-                    if lexicons.len() > 1 {
-                        print!("\t{}", matched_lexicon);
-                    }
-                    if texts.len() > 1 {
-                        print!("\t{}", textfile);
-                    }
-                    println!("\t{}\t{}", begin, end);
-                }
-            }
-            if do_coverage {
-                println!(
-                    "#coverage (tokens) = {}/{} = {}",
-                    matchcount,
-                    totalcount,
-                    if totalcount == 0 {
-                        0.0
-                    } else {
-                        matchcount as f64 / totalcount as f64
-                    }
-                );
-            }
         } else if args.is_present("cjk") {
-            let mut matchcount = 0;
             let maxlen = args
                 .value_of("cjk")
                 .unwrap()
@@ -277,41 +306,33 @@ fn main() {
                     if let Some((lastbyte, c)) = text[begin..].char_indices().nth(l - 1) {
                         let end = lastbyte + c.len_utf8();
                         let pattern = &text[begin..end];
-                        let mut matched_lexicon = None;
-                        for (lexicon, lexiconname) in lexicons.iter().zip(lexiconnames.iter()) {
-                            if lexicon.contains(pattern) {
-                                matched_lexicon = Some(*lexiconname);
-                                break;
+                        let mut has_match = false;
+                        if lexicons.len() > 1 {
+                            for item in &mut matched_lexicon {
+                                //reset matches
+                                *item = false;
                             }
                         }
-                        if let Some(matched_lexicon) = matched_lexicon {
-                            if do_coverage {
-                                matchcount += pattern.chars().count();
+                        for (j, lexicon) in lexicons.iter().enumerate() {
+                            if lexicon.contains(pattern) {
+                                matched_lexicon[j] = true;
+                                matchcount[j] += 1;
+                                has_match = true;
                             }
-                            print!("{}", pattern);
-                            if lexicons.len() > 1 {
-                                print!("\t{}", matched_lexicon);
-                            }
-                            if texts.len() > 1 {
-                                print!("\t{}", textfile);
-                            }
-                            println!("\t{}\t{}", begin, end);
+                        }
+                        if has_match {
+                            print_verbose_match(
+                                &pattern,
+                                begin,
+                                end,
+                                &matched_lexicon,
+                                &lexiconnames,
+                                texts.len(),
+                                textfile,
+                            );
                         }
                         break; //longest match only
                     }
-                }
-                if do_coverage {
-                    let totalcount = text.chars().count();
-                    println!(
-                        "#coverage (chars) = {}/{} = {}",
-                        matchcount,
-                        totalcount,
-                        if totalcount == 0 {
-                            0.0
-                        } else {
-                            matchcount as f64 / totalcount as f64
-                        }
-                    );
                 }
             }
         } else {
@@ -328,31 +349,26 @@ fn main() {
                         if matches.len() >= freq_threshold {
                             if args.is_present("verbose") {
                                 for begin in matches.iter() {
-                                    let end = *begin + length;
-                                    print!("{}", entry);
-                                    if lexicons.len() > 1 {
-                                        print!("\t{}", lexiconname);
-                                    }
-                                    if texts.len() > 1 {
-                                        print!("\t{}", textfile);
-                                    }
-                                    println!("\t{}\t{}", *begin, end);
+                                    print_verbose_match(
+                                        &entry,
+                                        *begin as usize,
+                                        *begin as usize + length as usize,
+                                        &matched_lexicon,
+                                        &lexiconnames,
+                                        texts.len(),
+                                        textfile,
+                                    );
                                 }
                             } else {
-                                print!("{}", entry);
-                                if lexicons.len() > 1 {
-                                    print!("\t{}", lexiconname);
-                                }
-                                if texts.len() > 1 {
-                                    print!("\t{}", textfile);
-                                }
-                                print!("\t{}", matches.len());
-                                if !args.is_present("no-matches") {
-                                    for begin in matches.iter() {
-                                        print!("\t{}", begin);
-                                    }
-                                }
-                                println!();
+                                print_multi_match(
+                                    &entry,
+                                    matches,
+                                    &lexiconname,
+                                    lexiconnames.len(),
+                                    texts.len(),
+                                    textfile,
+                                    args.is_present("no-matches"),
+                                );
                             }
                         }
                     } else {
@@ -385,34 +401,69 @@ fn main() {
                             if args.is_present("verbose") {
                                 for begin in matches_exact.iter() {
                                     let end = begin + length;
-                                    print!("{}", entry);
-                                    if lexicons.len() > 1 {
-                                        print!("\t{}", lexiconname);
-                                    }
-                                    if texts.len() > 1 {
-                                        print!("\t{}", textfile);
-                                    }
-                                    println!("\t{}\t{}", *begin, end);
+                                    print_verbose_match(
+                                        &entry,
+                                        *begin as usize,
+                                        end as usize,
+                                        &matched_lexicon,
+                                        &lexiconnames,
+                                        texts.len(),
+                                        textfile,
+                                    );
                                 }
                             } else {
-                                print!("{}", entry);
-                                if lexicons.len() > 1 {
-                                    print!("\t{}", lexiconname);
-                                }
-                                if texts.len() > 1 {
-                                    print!("\t{}", textfile);
-                                }
-                                print!("\t{}", matches_exact.len());
-                                if !args.is_present("no-matches") {
-                                    for begin in matches_exact.iter() {
-                                        print!("\t{}", begin);
-                                    }
-                                }
-                                println!();
+                                print_multi_match(
+                                    &entry,
+                                    matches,
+                                    &lexiconname,
+                                    lexiconnames.len(),
+                                    texts.len(),
+                                    textfile,
+                                    args.is_present("no-matches"),
+                                );
                             }
                         }
                     }
                 }
+            }
+        }
+        if do_coverage {
+            let mut sumcount = 0;
+            for (i, lexiconname) in lexiconnames.iter().enumerate() {
+                sumcount += matchcount[i];
+                println!(
+                    "#coverage ({} in {}) = {}/{} = {}",
+                    if args.is_present("tokens") {
+                        "tokens"
+                    } else {
+                        "characters"
+                    },
+                    lexiconname,
+                    matchcount[i],
+                    totalcount,
+                    if totalcount == 0 {
+                        0.0
+                    } else {
+                        matchcount[i] as f64 / totalcount as f64
+                    }
+                );
+            }
+            if lexiconnames.len() > 1 {
+                println!(
+                    "#coverage ({} against all) = {}/{} = {}",
+                    if args.is_present("tokens") {
+                        "tokens"
+                    } else {
+                        "characters"
+                    },
+                    sumcount,
+                    totalcount,
+                    if totalcount == 0 {
+                        0.0
+                    } else {
+                        sumcount as f64 / totalcount as f64
+                    }
+                );
             }
         }
     }

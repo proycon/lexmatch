@@ -80,8 +80,7 @@ bad     3488    3491
 ```
 
 You may provide multiple lexicons as well as multiple test files, the output
-will output the lexicon and/or test file in such cases. Do note that only the
-*first* matching lexicon is returned, rather than all matches. The order of the
+will output the lexicon and/or test file in such cases. If multiple lexicons match, they are all returned (delimited by a semicolon). The order of the
 results is arbitrary.
 
 If you don't care for the exact positions but rather want to compute a
