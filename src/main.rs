@@ -127,6 +127,11 @@ fn main() {
         exit(1);
     }
 
+    if (!args.is_present("tokens") && !args.is_present("cjk")) && args.is_present("coverage") {
+        eprintln!("ERROR: --coverage can only be used with --tokens or --cjk");
+        exit(1);
+    }
+
     let mut lexicons: Vec<Lexicon> = if args.is_present("lexicon") {
         args.get_many("lexicon")
             .unwrap()
@@ -237,7 +242,11 @@ fn main() {
                     "#coverage (tokens) = {}/{} = {}",
                     matchcount,
                     totalcount,
-                    matchcount as f64 / totalcount as f64
+                    if totalcount == 0 {
+                        0.0
+                    } else {
+                        matchcount as f64 / totalcount as f64
+                    }
                 );
             }
         } else if args.is_present("cjk") {
@@ -281,7 +290,11 @@ fn main() {
                         "#coverage (chars) = {}/{} = {}",
                         matchcount,
                         totalcount,
-                        matchcount as f64 / totalcount as f64
+                        if totalcount == 0 {
+                            0.0
+                        } else {
+                            matchcount as f64 / totalcount as f64
+                        }
                     );
                 }
             }

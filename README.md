@@ -116,6 +116,14 @@ bad     3488    3491
 
 Unlike before, you will find the matches are now returned in reading order.
 
+If you add `--coverage` then you will get an extra last line with some coverage
+statistics. This is useful to see how much of the text is covered by your
+lexicon.
+
+```
+#coverage (tokens) = 7/627 = 0.011164274322169059
+```
+
 When using ``--tokens`` we rely on whitespace and punctuation to delimit
 tokens. This does not work for languages such as Chinese, Japanese and Korean
 that are not delimited in such a way. For such languages, similar linear search
