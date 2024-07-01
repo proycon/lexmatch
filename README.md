@@ -1,10 +1,14 @@
 # Lexmatch
 
-This is a simple lexicon matching tool that, given a lexicon of words or phrases, identifies all matches in a given target text.
-It can be used compute a frequency list for a lexicon, on a target corpus.
+This is a simple lexicon matching tool that, given a lexicon of words or
+phrases, identifies all matches in a given target text, returning their exact
+positions. It can be used compute a frequency list for a lexicon, on a target
+corpus.
 
-The implementation uses suffix arrays. The text must be plain-text UTF-8 and is limited to 2^32 bytes (about 4GB).
-The offsets outputted will be UTF-8 byte positions.
+The implementation uses suffix arrays or hash tables. The text must be
+plain-text UTF-8. For the former implementation (default), it is limited to
+2^32 bytes (about 4GB). For the latter implementation (`--tokens`/`--cjk`),
+there is no such limit. The offsets outputted will be UTF-8 *byte* positions.
 
 
 ## Installation
@@ -33,17 +37,84 @@ Simple example:
 $ lexmatch --lexicon lexicon.lst corpus.txt
 ```
 
-The lexicon must be plain-text UTF-8 containing one entry per line, an entry need not be a single word and is not constrained in length.
+The lexicon must be plain-text UTF-8 containing one entry per line, an entry
+need not be a single word and is not constrained in length. If the lexicon
+consists of Tab Separated Values (TSV), then only the first column is
+considered, the rest is ignored.
 
 Instead of a lexicon you can also provide the patterns to query on the command line using ``--query``.
-For verbose output, add ``--verbose``. This produces TSV (tab seperated values) output that you can easily import in for example the [STAM tools](https://github.com/annotation/stam-tools):
+
+By default, you will get a TSV file with a column for the text, the occurrence count, and
+one with the begin position for each match (dynamic columns):
 
 ```
-$ lexmatch --verbose --query test /tmp/test.txt
-Reading text...
+$ lexmatch --query good --query bad /nettmp/republic.short.txt 
+Reading text from /tmp/republic.short.txt...
 Building suffix array (this may take a while)...
 Searching...
-Text	BeginUtf8Offset	EndUtf8Offset
-test	53	57
-test	11	15
+good    4       193     3307    3480    278
+bad     3       201     3315    3488
 ```
+
+For verbose output, add ``--verbose``. This produces cleaner TSV (tab seperated
+values) output that you can easily import in for example the [STAM
+tools](https://github.com/annotation/stam-tools):
+
+```
+$ lexmatch --verbose --query good --query bad /nettmp/republic.short.txt
+Text    BeginUtf8Offset EndUtf8Offset
+Reading text from /tmp/republic.short.txt...
+Building suffix array (this may take a while)...
+Searching...
+good    193     197
+good    3307    3311
+good    3480    3484
+good    278     282
+bad     201     204
+bad     3315    3318
+bad     3488    3491
+```
+
+You may provide multiple lexicons as well as multiple test files, the output
+will output the lexicon and/or test file in such cases. Do note that only the
+*first* matching lexicon is returned, rather than all matches. The order of the
+results is arbitrary.
+
+If you don't care for the exact positions but rather want to compute a
+frequency list with the number of occurrences for each item in the lexicon or
+passed through ``--query``, then pass ``--count-only``:
+
+```
+$ lexmatch --count-only --query good --query bad /tmp/republic.short.txt
+Reading text from /tmp/republic.short.txt...
+Building suffix array (this may take a while)...
+Searching...
+good    4
+bad	3
+```
+
+You can configure a minimum frequency threshold using ``--freq``.
+
+Rather than match all of the lexicon against the text, you can also iterate over tokens in the text and check if they occur in the lexicon. This uses a hash-map instead of a suffix array and is typically faster. It is more limited, however, and can not be used with frequency thresholding, and counting. It will always produce output like ``--verbose``:
+
+```
+$ lexmatch --tokens --query good --query bad /nettmp/republic.short.txt
+Text    BeginUtf8Offset EndUtf8Offset
+Reading text from /tmp/republic.short.txt...
+good    193     197
+bad     201     204
+good    278     282
+good    3307    3311
+bad     3315    3318
+good    3480    3484
+bad     3488    3491
+```
+
+Unlike before, you will find the items are now returned in reading order.
+
+When using ``--tokens`` we rely on whitespace and punctuation to delimit
+tokens. This does not work for languages such as Chinese, Japanese and Korean
+that are not delimited in such a way. For such languages, similar linear search
+behaviour can be attained by passing ``--cjk`` instead, with an integer value
+representing the maximum character length to explore. A greedy search will then
+be performed that favours longer patterns over shorter ones.
