@@ -108,77 +108,106 @@ fn main() {
         }
     }
 
-    eprintln!("Reading text...");
-    let text = read_text(args.value_of("text").expect("value")).expect("Parsing text");
+    let texts: Vec<&str> = args
+        .get_many("text")
+        .expect("Expected one or more input files")
+        .copied()
+        .collect();
 
-    eprintln!("Building suffix array (this may take a while)...");
-    let suffixtable = build_suffixarray(&text);
-
-    eprintln!("Searching...");
     if args.is_present("verbose") {
-        println!("Text\tBeginUtf8Offset\tEndUtf8Offset");
-    }
-    for entry in lexicon.iter() {
-        let matches = suffixtable.positions(entry);
-        let length = entry.as_bytes().len() as u32;
-
-        if args.is_present("all") {
-            if matches.len() >= freq_threshold {
-                if args.is_present("verbose") {
-                    for begin in matches.iter() {
-                        let end = *begin + length;
-                        println!("{}\t{}\t{}", entry, *begin, end);
-                    }
-                } else {
-                    print!("{}\t{}", entry, matches.len());
-                    if !args.is_present("no-matches") {
-                        for begin in matches.iter() {
-                            print!("\t{}", begin);
-                        }
-                    }
-                    println!();
-                }
-            }
+        if texts.len() > 1 {
+            println!("Text\tResource\tBeginUtf8Offset\tEndUtf8Offset");
         } else {
-            //Filter matches that are substrings rather than exact matches
-            //this is a simplification that ignores the UTF-8 nature of the text, but will work when
-            //boundaries are simple ascii-like spaces, punctuation etc.
-            //
-            let bytetext: &[u8] = text.as_bytes();
-            let matches_exact: Vec<u32> = matches
-                .into_iter()
-                .filter_map(|begin| {
-                    let begin = *begin as usize;
-                    if begin > 0 {
-                        let c: char = bytetext[begin - 1] as char;
-                        if c.is_alphanumeric() {
-                            return None;
-                        }
-                    }
-                    if (begin + length as usize) < bytetext.len() {
-                        let c: char = bytetext[begin + length as usize] as char;
-                        if c.is_alphanumeric() {
-                            return None;
-                        }
-                    }
-                    Some(begin as u32)
-                })
-                .collect();
+            println!("Text\tBeginUtf8Offset\tEndUtf8Offset");
+        }
+    }
 
-            if matches_exact.len() >= freq_threshold {
-                if args.is_present("verbose") {
-                    for begin in matches_exact.iter() {
-                        let end = begin + length;
-                        println!("{}\t{}\t{}", entry, *begin, end);
-                    }
-                } else {
-                    print!("{}\t{}", entry, matches_exact.len());
-                    if !args.is_present("no-matches") {
-                        for begin in matches_exact.iter() {
-                            print!("\t{}", begin);
+    for textfile in texts.iter() {
+        eprintln!("Reading text from {}...", textfile);
+        let text = read_text(textfile).expect("Parsing text");
+
+        eprintln!("Building suffix array (this may take a while)...");
+        let suffixtable = build_suffixarray(&text);
+
+        eprintln!("Searching...");
+        for entry in lexicon.iter() {
+            let matches = suffixtable.positions(entry);
+            let length = entry.as_bytes().len() as u32;
+
+            if args.is_present("all") {
+                if matches.len() >= freq_threshold {
+                    if args.is_present("verbose") {
+                        for begin in matches.iter() {
+                            let end = *begin + length;
+                            if texts.len() > 1 {
+                                println!("{}\t{}\t{}\t{}", entry, textfile, *begin, end);
+                            } else {
+                                println!("{}\t{}\t{}", entry, *begin, end);
+                            }
                         }
+                    } else {
+                        print!("{}", entry);
+                        if texts.len() > 1 {
+                            print!("\t{}", textfile);
+                        }
+                        print!("\t{}", matches.len());
+                        if !args.is_present("no-matches") {
+                            for begin in matches.iter() {
+                                print!("\t{}", begin);
+                            }
+                        }
+                        println!();
                     }
-                    println!();
+                }
+            } else {
+                //Filter matches that are substrings rather than exact matches
+                //this is a simplification that ignores the UTF-8 nature of the text, but will work when
+                //boundaries are simple ascii-like spaces, punctuation etc.
+                //
+                let bytetext: &[u8] = text.as_bytes();
+                let matches_exact: Vec<u32> = matches
+                    .into_iter()
+                    .filter_map(|begin| {
+                        let begin = *begin as usize;
+                        if begin > 0 {
+                            let c: char = bytetext[begin - 1] as char;
+                            if c.is_alphanumeric() {
+                                return None;
+                            }
+                        }
+                        if (begin + length as usize) < bytetext.len() {
+                            let c: char = bytetext[begin + length as usize] as char;
+                            if c.is_alphanumeric() {
+                                return None;
+                            }
+                        }
+                        Some(begin as u32)
+                    })
+                    .collect();
+
+                if matches_exact.len() >= freq_threshold {
+                    if args.is_present("verbose") {
+                        for begin in matches_exact.iter() {
+                            let end = begin + length;
+                            if texts.len() > 1 {
+                                println!("{}\t{}\t{}\t{}", entry, textfile, *begin, end);
+                            } else {
+                                println!("{}\t{}\t{}", entry, *begin, end);
+                            }
+                        }
+                    } else {
+                        print!("{}", entry);
+                        if texts.len() > 1 {
+                            print!("\t{}", textfile);
+                        }
+                        print!("\t{}", matches_exact.len());
+                        if !args.is_present("no-matches") {
+                            for begin in matches_exact.iter() {
+                                print!("\t{}", begin);
+                            }
+                        }
+                        println!();
+                    }
                 }
             }
         }
