@@ -95,7 +95,11 @@ bad	3
 
 You can configure a minimum frequency threshold using ``--freq``.
 
-Rather than match all of the lexicon against the text, you can also iterate over tokens in the text and check if they occur in the lexicon. This uses a hash-map instead of a suffix array and is typically faster. It is more limited, however, and can not be used with frequency thresholding, and counting. It will always produce output like ``--verbose``:
+Rather than match all of the lexicon against the text, you can also iterate
+over tokens in the text and check if they occur in the lexicon. This uses a
+hash-map instead of a suffix array and is typically faster. It is more limited,
+however, and can not be used with frequency thresholding or counting. It will
+always produce verbose output (similar to ``--verbose``):
 
 ```
 $ lexmatch --tokens --query good --query bad /nettmp/republic.short.txt
@@ -110,7 +114,7 @@ good    3480    3484
 bad     3488    3491
 ```
 
-Unlike before, you will find the items are now returned in reading order.
+Unlike before, you will find the matches are now returned in reading order.
 
 When using ``--tokens`` we rely on whitespace and punctuation to delimit
 tokens. This does not work for languages such as Chinese, Japanese and Korean
