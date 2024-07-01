@@ -30,7 +30,7 @@ See ``lexmatch --help``.
 Simple example:
 
 ```
-$ lexmatch --lexicon lexicon.lst --text corpus.txt
+$ lexmatch --lexicon lexicon.lst corpus.txt
 ```
 
 The lexicon must be plain-text UTF-8 containing one entry per line, an entry need not be a single word and is not constrained in length.
@@ -39,7 +39,7 @@ Instead of a lexicon you can also provide the patterns to query on the command l
 For verbose output, add ``--verbose``. This produces TSV (tab seperated values) output that you can easily import in for example the [STAM tools](https://github.com/annotation/stam-tools):
 
 ```
-$ lexmatch --verbose --query test --text /tmp/test.txt
+$ lexmatch --verbose --query test /tmp/test.txt
 Reading text...
 Building suffix array (this may take a while)...
 Searching...
