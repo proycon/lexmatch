@@ -8,7 +8,7 @@ license = "GPL-3.0+"
 name = "lexmatch"
 readme = "README.md"
 repository = "https://github.com/proycon/lexmatch"
-version = "0.2.3"
+version = "0.3.0"
 include = ["src/**/*", "LICENSE", "README.md"]
 
 [dependencies]

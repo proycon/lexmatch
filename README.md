@@ -97,8 +97,8 @@ You can configure a minimum frequency threshold using ``--freq``.
 
 Rather than match all of the lexicon against the text, you can also iterate
 over tokens in the text and check if they occur in the lexicon. This uses a
-hash-map instead of a suffix array and is typically faster. It is more limited,
-however, and can not be used with frequency thresholding or counting. It will
+hash map instead of a suffix array and is typically faster. It is more limited,
+however, and can not be used with frequency thresholds or counting. It will
 always produce verbose output (similar to ``--verbose``):
 
 ```
