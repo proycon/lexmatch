@@ -130,9 +130,34 @@ lexicon.
 #coverage (tokens) = 7/627 = 0.011164274322169059
 ```
 
-When using ``--tokens`` we rely on whitespace and punctuation to delimit
+Coverage can also be computed line-by-line and matching against multiple lexicons, we can also read directly from stdin rather than from file by passing `-` as filename:
+
+```
+$ echo "Is this good or bad?\nIt is quite good." | lexmatch --coverage-matrix --query good --query bad  -
+Reading text from -...
+Line            query
+Is this good or bad?    0.4
+It is quite good.       0.25
+```
+
+This can be used as a simple lexicon-based method for language detection:
+
+```
+$ echo "Do you know what language this is?\nUnd was ist das hier genau?\nÇa va assez bien je crois" | lexmatch -i  --coverage-matrix --lexicon ~X/en.lst --lexicon ~X/de.lst --lexicon ~X/fr.lst  -                     
+Reading lexicon...
+Reading lexicon...
+Reading lexicon...
+Reading text from -...
+Line            /home/proycon/exp/en.lst        /home/proycon/exp/de.lst        /home/proycon/exp/fr.lst        Total
+do you know what language this is?      1       0       0.14285714285714285     1.1428571428571428
+und was ist das hier genau?     0.16666666666666666     0.8333333333333334      0.16666666666666666     1.1666666666666667
+ça va assez bien je crois       0.2     0.2     0.6     1
+```
+
+When using ``--tokens`` (or `--coverage-matrix`) we rely on whitespace and punctuation to delimit
 tokens. This does not work for languages such as Chinese, Japanese and Korean
 that are not delimited in such a way. For such languages, similar linear search
 behaviour can be attained by passing ``--cjk`` instead, with an integer value
 representing the maximum character length to explore. A greedy search will then
 be performed that favours longer patterns over shorter ones.
+
