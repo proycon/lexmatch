@@ -147,6 +147,10 @@ fn main() {
                         .long("coverage")
                         .help("With --tokens; compute how many tokens are covered by the lexicon. With --cjk; on a character basis.")
                         .required(false))
+                    .arg(Arg::with_name("coverage-matrix")
+                        .long("coverage-matrix")
+                        .help("For each line in the input, compute the coverage in the lexicons")
+                        .required(false))
                     .arg(Arg::with_name("cjk")
                         .short('C')
                         .long("cjk")
@@ -256,7 +260,63 @@ fn main() {
         eprintln!("Reading text from {}...", textfile);
         let text = read_text(textfile, args.is_present("no-case")).expect("Parsing text");
 
-        if args.is_present("tokens") {
+        if args.is_present("coverage-matrix") {
+            let mut token = String::new();
+            print!("Line\t",);
+            for lexiconname in lexiconnames.iter() {
+                print!("\t{}", lexiconname);
+            }
+            if lexiconnames.len() > 1 {
+                print!("\tTotal");
+            }
+            println!();
+            for line in text.split("\n") {
+                if !line.is_empty() {
+                    totalcount = 0;
+                    for item in &mut matchcount {
+                        //reset matches
+                        *item = 0;
+                    }
+                    print!("{}", line);
+                    for c in line.chars() {
+                        if c.is_alphanumeric() {
+                            token.push(c);
+                        } else if !token.is_empty() {
+                            totalcount += 1;
+                            for (j, lexicon) in lexicons.iter().enumerate() {
+                                if lexicon.contains(&token) {
+                                    matchcount[j] += 1;
+                                }
+                            }
+                            token.clear();
+                        }
+                    }
+                    let mut sumcount = 0;
+                    for count in matchcount.iter() {
+                        sumcount += *count;
+                        print!(
+                            "\t{}",
+                            if totalcount == 0 {
+                                0.0
+                            } else {
+                                *count as f64 / totalcount as f64
+                            }
+                        );
+                    }
+                    if lexiconnames.len() > 1 {
+                        print!(
+                            "\t{}",
+                            if totalcount == 0 {
+                                0.0
+                            } else {
+                                sumcount as f64 / totalcount as f64
+                            }
+                        );
+                    }
+                    println!();
+                }
+            }
+        } else if args.is_present("tokens") {
             let mut token = String::new();
             let mut begin = 0;
             for (i, c) in text.char_indices() {
@@ -264,11 +324,9 @@ fn main() {
                     token.push(c);
                 } else if !token.is_empty() {
                     let mut has_match = false;
-                    if lexicons.len() > 1 {
-                        for item in &mut matched_lexicon {
-                            //reset matches
-                            *item = false;
-                        }
+                    for item in &mut matched_lexicon {
+                        //reset matches
+                        *item = false;
                     }
                     totalcount += 1;
                     for (j, lexicon) in lexicons.iter().enumerate() {
@@ -307,11 +365,9 @@ fn main() {
                         let end = lastbyte + c.len_utf8();
                         let pattern = &text[begin..end];
                         let mut has_match = false;
-                        if lexicons.len() > 1 {
-                            for item in &mut matched_lexicon {
-                                //reset matches
-                                *item = false;
-                            }
+                        for item in &mut matched_lexicon {
+                            //reset matches
+                            *item = false;
                         }
                         for (j, lexicon) in lexicons.iter().enumerate() {
                             if lexicon.contains(pattern) {
