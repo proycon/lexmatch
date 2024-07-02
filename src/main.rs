@@ -61,7 +61,7 @@ fn print_verbose_match(
     begin: usize,
     end: usize,
     matched_lexicons: &Vec<bool>,
-    lexiconnames: &Vec<&str>,
+    lexiconnames: &Vec<String>,
     texts_len: usize,
     textfile: &str,
 ) {
@@ -220,10 +220,13 @@ fn main() {
         vec![HashSet::new()]
     };
 
-    let lexiconnames: Vec<&str> = if args.is_present("lexicon") {
-        args.get_many("lexicon").unwrap().copied().collect()
+    let lexiconnames: Vec<String> = if args.is_present("lexicon") {
+        args.get_many("lexicon")
+            .unwrap()
+            .map(|s: &String| s.clone())
+            .collect()
     } else {
-        vec!["query"]
+        vec!["query".to_string()]
     };
 
     if args.is_present("query") {
@@ -277,15 +280,17 @@ fn main() {
                         //reset matches
                         *item = 0;
                     }
-                    print!("{}", line);
+                    print!("{}", line.trim_matches('\r'));
                     for c in line.chars() {
                         if c.is_alphanumeric() {
                             token.push(c);
                         } else if !token.is_empty() {
-                            totalcount += 1;
-                            for (j, lexicon) in lexicons.iter().enumerate() {
-                                if lexicon.contains(&token) {
-                                    matchcount[j] += 1;
+                            if token.chars().any(|c| c.is_alphabetic()) {
+                                totalcount += 1;
+                                for (j, lexicon) in lexicons.iter().enumerate() {
+                                    if lexicon.contains(&token) {
+                                        matchcount[j] += 1;
+                                    }
                                 }
                             }
                             token.clear();
@@ -323,29 +328,31 @@ fn main() {
                 if c.is_alphanumeric() {
                     token.push(c);
                 } else if !token.is_empty() {
-                    let mut has_match = false;
-                    for item in &mut matched_lexicon {
-                        //reset matches
-                        *item = false;
-                    }
-                    totalcount += 1;
-                    for (j, lexicon) in lexicons.iter().enumerate() {
-                        if lexicon.contains(&token) {
-                            matched_lexicon[j] = true;
-                            matchcount[j] += 1;
-                            has_match = true;
+                    if token.chars().any(|c| c.is_alphabetic()) {
+                        let mut has_match = false;
+                        for item in &mut matched_lexicon {
+                            //reset matches
+                            *item = false;
                         }
-                    }
-                    if has_match {
-                        print_verbose_match(
-                            &token,
-                            begin,
-                            begin + token.len(),
-                            &matched_lexicon,
-                            &lexiconnames,
-                            texts.len(),
-                            textfile,
-                        );
+                        totalcount += 1;
+                        for (j, lexicon) in lexicons.iter().enumerate() {
+                            if lexicon.contains(&token) {
+                                matched_lexicon[j] = true;
+                                matchcount[j] += 1;
+                                has_match = true;
+                            }
+                        }
+                        if has_match {
+                            print_verbose_match(
+                                &token,
+                                begin,
+                                begin + token.len(),
+                                &matched_lexicon,
+                                &lexiconnames,
+                                texts.len(),
+                                textfile,
+                            );
+                        }
                     }
                     token.clear();
                     begin = i + 1;
