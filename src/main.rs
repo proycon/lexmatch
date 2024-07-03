@@ -218,7 +218,7 @@ fn main() {
         args.get_many("lexicon")
             .unwrap()
             .map(|s: &String| {
-                eprintln!("Reading lexicon...");
+                eprintln!("Reading lexicon from {}...", s);
                 read_lexicon(s, args.is_present("no-case")).expect("Parsing lexicon")
             })
             .collect()
