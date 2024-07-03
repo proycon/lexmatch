@@ -151,6 +151,11 @@ fn main() {
                         .long("coverage-matrix")
                         .help("For each line in the input, compute the coverage in the lexicons")
                         .required(false))
+                    .arg(Arg::with_name("min-token-length")
+                        .long("min-token-length")
+                        .help("Minimum token length to consider, shorter tokens will be ignored and not matched (applies --tokens, --coverage and --coverage-matrix)")
+                        .takes_value(true)
+                        .required(false))
                     .arg(Arg::with_name("cjk")
                         .short('C')
                         .long("cjk")
@@ -243,6 +248,11 @@ fn main() {
         .collect();
 
     let do_coverage = args.is_present("coverage");
+    let min_token_length = args
+        .value_of("min-token-length")
+        .unwrap()
+        .parse::<usize>()
+        .expect("Value must be integer"); //only for coverage computation
 
     if args.is_present("verbose") || args.is_present("tokens") || args.is_present("cjk") {
         print!("Text");
@@ -285,7 +295,10 @@ fn main() {
                         if c.is_alphanumeric() {
                             token.push(c);
                         } else if !token.is_empty() {
-                            if token.chars().any(|c| c.is_alphabetic()) {
+                            if token.chars().any(|c| c.is_alphabetic())
+                                && (min_token_length <= 1
+                                    || token.chars().count() >= min_token_length)
+                            {
                                 totalcount += 1;
                                 for (j, lexicon) in lexicons.iter().enumerate() {
                                     if lexicon.contains(&token) {
@@ -328,7 +341,9 @@ fn main() {
                 if c.is_alphanumeric() {
                     token.push(c);
                 } else if !token.is_empty() {
-                    if token.chars().any(|c| c.is_alphabetic()) {
+                    if token.chars().any(|c| c.is_alphabetic())
+                        && (min_token_length <= 1 || token.chars().count() >= min_token_length)
+                    {
                         let mut has_match = false;
                         for item in &mut matched_lexicon {
                             //reset matches
