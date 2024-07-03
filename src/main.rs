@@ -180,7 +180,7 @@ fn main() {
                     .arg(Arg::with_name("freq")
                         .long("freq")
                         .short('f')
-                        .help("An absolute frequency threshold, return only matches above this threshold, defaults to 1, set to 0 to return the entire lexicon. Does not work with --tokens.")
+                        .help("An absolute frequency threshold, return only matches above this threshold, defaults to 1, set to 0 to return the entire lexicon. Does not work with --tokens/--cjk.")
                         .takes_value(true)
                         .default_value("1"))
                     .arg(Arg::with_name("textfile")
