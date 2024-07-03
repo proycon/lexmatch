@@ -155,6 +155,7 @@ fn main() {
                         .long("min-token-length")
                         .help("Minimum token length to consider, shorter tokens will be ignored and not matched (applies only to --tokens, --coverage and --coverage-matrix)")
                         .takes_value(true)
+                        .default_value("1")
                         .required(false))
                     .arg(Arg::with_name("cjk")
                         .short('C')
