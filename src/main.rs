@@ -153,7 +153,7 @@ fn main() {
                         .required(false))
                     .arg(Arg::with_name("min-token-length")
                         .long("min-token-length")
-                        .help("Minimum token length to consider, shorter tokens will be ignored and not matched (applies only to --tokens, --coverage and --coverage-matrix)")
+                        .help("Minimum token length to consider, shorter tokens will be ignored and not matched")
                         .takes_value(true)
                         .default_value("1")
                         .required(false))
@@ -421,6 +421,9 @@ fn main() {
             eprintln!("Searching...");
             for (lexicon, lexiconname) in lexicons.iter().zip(lexiconnames.iter()) {
                 for entry in lexicon.iter() {
+                    if min_token_length >= 1 && entry.chars().count() < min_token_length {
+                        continue;
+                    }
                     let matches = suffixtable.positions(entry);
                     let length = entry.as_bytes().len() as u32;
 
